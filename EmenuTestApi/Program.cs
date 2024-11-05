@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
   
 }
 );
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .WriteTo.File("Logs/log.txt", rollingInterval: RollingInterval.Day) // Log daily
+        .WriteTo.Console() // Optional: log to console as well for easy debugging
+        .ReadFrom.Configuration(context.Configuration); // Read other settings from configuration
+});
 
 // Configure JWT authentication
 //builder.Services.AddAuthentication(options =>
@@ -61,5 +69,17 @@ app.UseAuthorization();
 
 app.UseAuthentication();
 app.MapControllers();
-
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next.Invoke();
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "An unhandled exception occurred.");
+        context.Response.StatusCode = 500; // Internal Server Error
+        await context.Response.WriteAsync("An error occurred. Please try again later.");
+    }
+});
 app.Run();

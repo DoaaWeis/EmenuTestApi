@@ -2,6 +2,7 @@
 using EmenuTestApi.Services.Services;
 using EmenuTestApi.Shared.Validation;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace EmenuTestApi.Controllers
 {
@@ -35,13 +36,21 @@ namespace EmenuTestApi.Controllers
         [HttpPost]
         public async Task<IActionResult> PostUser([FromBody] User user)
         {
-
-            if (!ModelValidation.ValidateModel(user,"Name", "Designation", "Country"))
+            try
             {
-                return BadRequest("Required fields are missing or invalid.");
+                if (!ModelValidation.ValidateModel(user, "Name", "Designation", "Country"))
+                {
+                    return BadRequest("Required fields are missing or invalid.");
+                }
+                await _userService.AddUserAsync(user);
+                return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user);
             }
-            await _userService.AddUserAsync(user);
-            return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user);
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error occurred while fetching user with ID {UserId}", user.UserId);
+                 throw; 
+            }
+           
         }
 
         [HttpPut("{id}")]
